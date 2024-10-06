@@ -25,10 +25,10 @@ const SearchForm: React.FC<SearchFormProps> = ({ setProjects }) => {
   }, []);
 
   const sampleQueries = [
-    "Show me apartments in Indiranagar",
-    "Find villas in Whitefield",
-    "List projects by Prestige Group",
-    "Display properties near MG Road",
+    "Projects launched in 2022 near Electronic City",
+    "Projects with bwssb water source near Marathahalli",
+    "Projects by Prestige Group",
+    "Projects launched after 2022 with land area greater than 8000",
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
