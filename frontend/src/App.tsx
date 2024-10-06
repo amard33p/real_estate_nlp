@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { TypeAnimation } from 'react-type-animation';
 import Map from "./components/Map";
 
 interface Project {
@@ -30,9 +31,21 @@ const App: React.FC = () => {
     null
   );
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isTyping, setIsTyping] = useState<boolean>(true);
+
+  const sampleQueries = [
+    'Show me apartments in Indiranagar',
+    'Find villas in Whitefield',
+    'List projects by Prestige Group',
+    'Display properties near MG Road',
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!query.trim()) {
+      alert("Please enter a search query");
+      return;
+    }
     setIsLoading(true);
     try {
       const response = await axios.post<Project[]>("/api/projects", { query });
@@ -58,13 +71,34 @@ const App: React.FC = () => {
     <div className="App">
       <h1>Bangalore Real Estate Projects</h1>
       <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Enter your query"
-        />
-        <button type="submit" disabled={isLoading}>
+        <div className="input-wrapper">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setIsTyping(false);
+            }}
+            onFocus={() => setIsTyping(false)}
+            required
+          />
+          {isTyping && (
+            <div className="type-animation-overlay">
+              <TypeAnimation
+                sequence={[
+                  ...sampleQueries.flatMap(q => [q, 1000]),
+                  () => setIsTyping(true),
+                ]}
+                wrapper="span"
+                cursor={true}
+                repeat={Infinity}
+                speed={75}
+                style={{ display: 'inline-block' }}
+              />
+            </div>
+          )}
+        </div>
+        <button type="submit" disabled={isLoading || !query.trim()}>
           {isLoading ? (
             <>
               <span className="spinner"></span>

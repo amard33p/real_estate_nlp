@@ -11,7 +11,7 @@ CORS(app, resources={r"/api/*": {"origins": "http://localhost:5173"}})
 def get_projects():
     user_query = request.json["query"]
     db = get_db_connection()
-    sql_query = "SELECT project_id as id, project_name, latitude, longitude FROM karnataka_projects where project_name LIKE '%prestige%' AND district like '%bengaluru%' AND project_id > 8900"
+    sql_query = "SELECT project_id as id, project_name as name, latitude, longitude FROM karnataka_projects where project_name LIKE '%prestige%' AND district like '%bengaluru%' AND project_id > 8900"
     # sql_query = transform_query(user_query, db)
     print(sql_query)
     results = db.run(sql_query)
