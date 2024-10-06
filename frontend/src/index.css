@@ -1,42 +1,8 @@
 body {
-  font-family: Arial, sans-serif;
   margin: 0;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
-.App {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-form {
-  display: flex;
-  margin-bottom: 20px;
-}
-
-.input-wrapper {
-  position: relative;
-  flex-grow: 1;
-  margin-right: 10px;
-}
-
-input[type="text"] {
-  width: 100%;
-  padding: 10px;
-}
-
-button {
-  padding: 10px 20px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-button:hover {
-  background-color: #0056b3;
+  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .leaflet-container {
@@ -45,26 +11,8 @@ button:hover {
   margin-bottom: 20px;
 }
 
-.project-details {
-  background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  padding: 20px;
-  margin-top: 20px;
-}
-
-.project-details h2 {
-  color: #007bff;
-  margin-top: 0;
-}
-
-.project-details p {
-  margin: 10px 0;
-}
-
-.project-details strong {
-  font-weight: bold;
-  color: #495057;
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .spinner {
@@ -76,29 +24,4 @@ button:hover {
   border-top-color: #fff;
   animation: spin 1s ease-in-out infinite;
   margin-right: 10px;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-button:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.type-animation-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  padding-left: 10px;
-  pointer-events: none;
-}
-
-input {
-  width: 100%;
 }
