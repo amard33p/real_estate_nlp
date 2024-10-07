@@ -2,7 +2,7 @@ import math
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-from query_transformer import transform_query, extract_location_and_query
+from query_transformer import transform_query, extract_location_from_query
 from database import get_db_connection
 from geocoding import geocode_location
 
@@ -12,10 +12,6 @@ CORS(app, resources={r"/api/*": {"origins": "http://localhost:5173"}})
 BLR_LAT, BLR_LON = 12.9716, 77.5946  # Default to Bangalore center
 BLR_RADIUS = 100
 ZONAL_RADIUS = 10
-
-
-def create_app():
-    return app
 
 
 def haversine_distance(lat1, lon1, lat2, lon2):
@@ -55,16 +51,18 @@ def get_projects():
         user_query = request.json["query"]
         db = get_db_connection()
 
-        extracted_info = extract_location_and_query(user_query)
-        location, main_query = extracted_info["location"], extracted_info["query"]
-
-        center_lat, center_lon, max_distance_km = get_zonal_search_parameters(location)
+        extracted_info = extract_location_from_query(user_query)
+        location, query_without_location = (
+            extracted_info["location"],
+            extracted_info["query"],
+        )
+        center_lat, center_lon, max_distance_km = get_zonal_coordinates(location)
 
         print(f"User query: {user_query}")
-        sql_query = transform_query(main_query, db)
+        sql_query = transform_query(query_without_location, db)
         print(f"Transformed SQL query: \n{sql_query}")
-        results = db.run(sql_query)
 
+        results = db.run(sql_query)
         print(f"Got {len(results)} results before distance filtering")
         filtered_results = filter_results_by_distance(
             results, center_lat, center_lon, max_distance_km
@@ -73,10 +71,10 @@ def get_projects():
         print(f"Got {len(filtered_results)} results after distance filtering")
         return jsonify(filtered_results)
     except Exception as e:
-        return handle_error(str(e))
+        return jsonify({"error": f"An error occurred: {e}"}), 500
 
 
-def get_zonal_search_parameters(location):
+def get_zonal_coordinates(location):
     if location:
         print(f"Extracted location from user query: {location}")
         coordinates = geocode_location(location)
@@ -118,11 +116,5 @@ def geocode():
         return jsonify({"error": "Unable to geocode the location"}), 404
 
 
-def handle_error(error_message):
-    print(f"An error occurred: {error_message}")
-    return jsonify({"error": f"An error occurred: {error_message}"}), 500
-
-
 if __name__ == "__main__":
-    app = create_app()
     app.run(debug=True)

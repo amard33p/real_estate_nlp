@@ -17,3 +17,7 @@ curl -X POST http://localhost:5000/api/projects -H 'Content-Type: application/js
 
 curl -X POST http://localhost:5000/api/projects -H 'Content-Type: application/json' -d '{"query": "projects launched by prestige after 2023 in varthur"}'
 ```
+
+```sql
+SELECT * FROM karnataka_projects WHERE promoter_name LIKE '%Prestige%' and project_id > 8900 and latitude is not null and longitude is not null
+```

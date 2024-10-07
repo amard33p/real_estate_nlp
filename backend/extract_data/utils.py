@@ -31,9 +31,7 @@ def refresh_cookies(func):
                 expiry_time = datetime.fromtimestamp(jsessionid_cookie_expiry)
                 current_time = datetime.now()
                 if expiry_time - current_time <= timedelta(minutes=1):
-                    logger.info(
-                        "JSESSIONID is about to expire. Refreshing session."
-                    )
+                    logger.info("JSESSIONID is about to expire. Refreshing session.")
                     should_refresh = True
 
             if should_refresh:
@@ -45,6 +43,7 @@ def refresh_cookies(func):
         return func(self, *args, **kwargs)
 
     return wrapper
+
 
 def clean_status(status):
     if status.startswith("REJECTED"):

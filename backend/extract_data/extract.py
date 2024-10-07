@@ -18,11 +18,11 @@ from tenacity import (
     wait_incrementing,
     retry_if_exception_type,
 )
+import sqlite3
+import pandas as pd
 
 from utils import reformat_date, refresh_cookies, clean_status
 
-import sqlite3
-import pandas as pd
 
 def setup_logging():
     logging.basicConfig(
@@ -40,8 +40,10 @@ def setup_logging():
 setup_logging()
 log = logging.getLogger("RERA_PARSER")
 
-OUT_CSV_FILE = "projects.csv"
-DB_FILE = "../projects.db"
+CSV_FILE = "karnataka_projects.csv"
+DB_FILE = "../rera_projects.db"
+TABLE_NAME = "karnataka_projects"
+
 
 @dataclass
 class ProjectDetails:
@@ -283,8 +285,8 @@ def process_project(parser: ReraDataParser, project_id: str, queue: Queue):
 def run_concurrently(project_ids):
     parser = ReraDataParser()
     queue = Queue()
-    filename = OUT_CSV_FILE
-    
+    filename = CSV_FILE
+
     # Start the CSV writer thread
     writer_thread = Thread(target=csv_writer, args=(filename, queue), daemon=True)
     writer_thread.start()
@@ -326,23 +328,16 @@ def adhoc():
 
 def csv_to_sqlite(csv_filename: str, db_filename: str):
     log.info(f"Converting {csv_filename} to SQLite database {db_filename}")
-    
-    # Read CSV file
+
     df = pd.read_csv(csv_filename)
-    
-    # Create SQLite connection
     conn = sqlite3.connect(db_filename)
-    
-    # Write DataFrame to SQLite
-    df.to_sql('projects', conn, if_exists='replace', index=False)
-    
-    # Close connection
+    df.to_sql(TABLE_NAME, conn, if_exists="replace", index=False)
     conn.close()
-    
-    log.info(f"Conversion complete. Data stored in table 'projects' in {db_filename}")
+
+    log.info(f"Conversion complete. Data stored in table '{TABLE_NAME}' in {DB_FILE}")
 
 
 if __name__ == "__main__":
     # run_concurrently()
-    retry_failed_projects()
-    csv_to_sqlite(OUT_CSV_FILE, DB_FILE)
+    # retry_failed_projects()
+    csv_to_sqlite(CSV_FILE, DB_FILE)

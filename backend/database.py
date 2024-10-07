@@ -1,7 +1,9 @@
 import sqlite3
 from typing import List, Dict
 
-PROJECTS_DB_PATH = "projects.db"
+from langchain_community.utilities.sql_database import SQLDatabase
+
+PROJECTS_DB_PATH = "rera_projects.db"
 
 
 class SQLiteDatabase:
@@ -18,20 +20,7 @@ class SQLiteDatabase:
         return results
 
     def get_table_info(self) -> str:
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            tables = cursor.fetchall()
-
-            table_info = []
-            for table in tables:
-                table_name = table[0]
-                cursor.execute(f"PRAGMA table_info({table_name});")
-                columns = cursor.fetchall()
-                column_names = [column[1] for column in columns]
-                table_info.append(f"{table_name} ({', '.join(column_names)})")
-
-            return "\n".join(table_info)
+        return SQLDatabase.from_uri(f"sqlite:///{self.db_path}").get_table_info()
 
 
 def get_db_connection() -> SQLiteDatabase:
