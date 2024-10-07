@@ -1,7 +1,7 @@
 import sqlite3
 from typing import List, Dict
 
-KA_PROJECTS_DB_PATH = "karnataka_projects.db"
+PROJECTS_DB_PATH = "projects.db"
 
 
 class SQLiteDatabase:
@@ -35,4 +35,4 @@ class SQLiteDatabase:
 
 
 def get_db_connection() -> SQLiteDatabase:
-    return SQLiteDatabase(KA_PROJECTS_DB_PATH)
+    return SQLiteDatabase(PROJECTS_DB_PATH)
