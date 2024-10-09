@@ -46,8 +46,9 @@ def refresh_cookies(func):
 
 
 def clean_status(status):
-    if status:
+    if status is not None:
         for prefix in ["REJECTED", "WITHDRAWN", "REVOKED"]:
             if status.startswith(prefix):
                 return prefix
+        return status
     return "UNKNOWN"
