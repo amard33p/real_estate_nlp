@@ -6,6 +6,7 @@ from dataclasses import dataclass, asdict, fields
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 from threading import Thread
+from datetime import datetime, timedelta
 
 from bs4 import BeautifulSoup
 import requests
@@ -321,7 +322,7 @@ def retry_failed_projects():
 
 
 def adhoc():
-    project_id = 9533
+    project_id = 12700
     parser = ReraDataParser()
     print(parser.extract_project_details(str(project_id)))
 
@@ -337,7 +338,64 @@ def csv_to_sqlite(csv_filename: str, db_filename: str):
     log.info(f"Conversion complete. Data stored in table '{TABLE_NAME}' in {DB_FILE}")
 
 
+def parse_rera_date(rera_ack_or_reg_no):
+    date_str = rera_ack_or_reg_no.split("/")[-2]
+    if len(date_str) == 6:
+        return pd.to_datetime(date_str, format="%d%m%y", errors="coerce")
+    return pd.NaT
+
+
+def get_start_project_id_for_db_refresh(df):
+    # Data before this ID do not follow fixed date format
+    df = df[df["project_id"].astype(int) >= 10000]
+
+    # Filter approved projects
+    approved_df = df[df["rera_project_approval_status"] == "APPROVED"].copy()
+
+    # Parse the date from rera_registration_number and create a new column for approved projects
+    approved_df["rera_registration_date"] = approved_df[
+        "rera_registration_number"
+    ].apply(parse_rera_date)
+
+    # For some inexplicable reason, some rows have registration dates after today
+    # This is anomalous behaviour and we will exclude these rows
+    today = pd.Timestamp.today().normalize()
+    approved_df = approved_df[approved_df["rera_registration_date"] <= today]
+
+    # Sort approved projects by registration date
+    approved_df = approved_df.sort_values("rera_registration_date")
+
+    # Get the most recent date for approved projects
+    latest_project_registration_date = approved_df["rera_registration_date"].iloc[-1]
+    log.info(f"Latest approved project registration date: {latest_project_registration_date}")
+
+    # Filter unknown status projects
+    unknown_df = df[df["rera_project_approval_status"] == "UNKNOWN"].copy()
+
+    # Parse the date for unknown projects
+    unknown_df["rera_acknowledgement_date"] = (
+        unknown_df["rera_acknowledgement_number"].dropna().apply(parse_rera_date)
+    )
+
+    # Sort unknown projects by registration date
+    unknown_df = unknown_df.sort_values("rera_acknowledgement_date")
+
+    # Calculate the date 60 days before the latest approved project
+    lookup_start_date = latest_project_registration_date - timedelta(days=60)
+    log.info(f"Lookup start date: {lookup_start_date}")
+
+    # Find the first project within 60 days of the latest approved project
+    lookup_start_project = unknown_df[
+        unknown_df["rera_acknowledgement_date"] >= lookup_start_date
+    ]
+
+    return lookup_start_project["project_id"].iloc[0]
+
+
 if __name__ == "__main__":
     # run_concurrently()
     # retry_failed_projects()
-    csv_to_sqlite(CSV_FILE, DB_FILE)
+    # csv_to_sqlite(CSV_FILE, DB_FILE)
+    # adhoc()
+    df = pd.read_csv(CSV_FILE)
+    print(get_start_project_id_for_db_refresh(df))
