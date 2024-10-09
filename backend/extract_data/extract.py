@@ -1,7 +1,8 @@
+import re
 import csv
 import functools
 import logging
-from typing import Optional
+from typing import Optional, Tuple
 from dataclasses import dataclass, asdict, fields
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
@@ -135,6 +136,16 @@ class ReraDataParser:
             log.error(f"Exception in projectViewDetails for {rera_reg_no}")
         return None
 
+    @refresh_cookies
+    def get_view_all_projects(self) -> Optional[str]:
+        """Fetches the 'View All Projects' page content."""
+        try:
+            response = self.session.get(f"{self.BASE_URL}/viewAllProjects")
+            return response.text
+        except Exception as e:
+            log.error(f"Failed to fetch 'View All Projects' page: {e}")
+        return None
+
     def extract_value(self, soup: BeautifulSoup, label: str) -> Optional[str]:
         tags = soup.find_all(string=lambda text: label in text)
         for tag in tags:
@@ -251,6 +262,45 @@ class ReraDataParser:
 
         return details
 
+    def get_latest_approved_project(self) -> Optional[Tuple[str, str]]:
+        try:
+            # Get the view all projects page
+            html_content = self.get_view_all_projects()
+
+            # Find the first occurrence of 'PRM/KA/RERA/'
+            match = re.search(r'PRM/KA/RERA/\d+/\d+/PR/\d{6}/\d{6}', html_content)
+            if not match:
+                log.error("No RERA registration number found")
+                return None
+
+            latest_rera_reg_no = match.group(0)
+            log.info(f"Latest RERA registration number: {latest_rera_reg_no}")
+
+            # Get project view details
+            view_details_html = self.get_project_view_details(latest_rera_reg_no)
+            if not view_details_html:
+                log.error("Failed to get project view details")
+                return None
+
+            # Extract project ID
+            soup = BeautifulSoup(view_details_html, "html.parser")
+            view_details_link = soup.find("a", title="View Project Details")
+            if not view_details_link:
+                log.error("View Project Details link not found")
+                return None
+
+            project_id = view_details_link.get("id")
+            if not project_id:
+                log.error("Project ID not found in the link")
+                return None
+
+            log.info(f"Latest approved project ID: {project_id}")
+            return project_id, latest_rera_reg_no
+
+        except Exception as e:
+            log.error(f"Error getting latest approved project ID: {e}")
+            return None
+
 
 def csv_writer(filename: str, queue: Queue):
     with open(filename, mode="a", newline="", encoding="utf-8") as file:
@@ -346,28 +396,13 @@ def parse_rera_date(rera_ack_or_reg_no):
 
 
 def get_start_project_id_for_db_refresh(df):
+    parser = ReraDataParser()
+    latest_project_id, latest_rera_reg_no = parser.get_latest_approved_project()
+    latest_project_registration_date = parse_rera_date(latest_rera_reg_no)
+    log.info(f"Latest approved project registration date: {latest_project_registration_date}")
+
     # Data before this ID do not follow fixed date format
     df = df[df["project_id"].astype(int) >= 10000]
-
-    # Filter approved projects
-    approved_df = df[df["rera_project_approval_status"] == "APPROVED"].copy()
-
-    # Parse the date from rera_registration_number and create a new column for approved projects
-    approved_df["rera_registration_date"] = approved_df[
-        "rera_registration_number"
-    ].apply(parse_rera_date)
-
-    # For some inexplicable reason, some rows have registration dates after today
-    # This is anomalous behaviour and we will exclude these rows
-    today = pd.Timestamp.today().normalize()
-    approved_df = approved_df[approved_df["rera_registration_date"] <= today]
-
-    # Sort approved projects by registration date
-    approved_df = approved_df.sort_values("rera_registration_date")
-
-    # Get the most recent date for approved projects
-    latest_project_registration_date = approved_df["rera_registration_date"].iloc[-1]
-    log.info(f"Latest approved project registration date: {latest_project_registration_date}")
 
     # Filter unknown status projects
     unknown_df = df[df["rera_project_approval_status"] == "UNKNOWN"].copy()
@@ -381,7 +416,7 @@ def get_start_project_id_for_db_refresh(df):
     unknown_df = unknown_df.sort_values("rera_acknowledgement_date")
 
     # Calculate the date 60 days before the latest approved project
-    lookup_start_date = latest_project_registration_date - timedelta(days=60)
+    lookup_start_date = latest_project_registration_date - timedelta(days=90)
     log.info(f"Lookup start date: {lookup_start_date}")
 
     # Find the first project within 60 days of the latest approved project
@@ -389,7 +424,11 @@ def get_start_project_id_for_db_refresh(df):
         unknown_df["rera_acknowledgement_date"] >= lookup_start_date
     ]
 
-    return lookup_start_project["project_id"].iloc[0]
+    lookup_start_project_id = lookup_start_project["project_id"].iloc[0]
+    log.info(f"Lookup start project ID: {lookup_start_project_id}")
+    log.info(f"Lookup end project ID: {latest_project_id}")
+
+    return lookup_start_project_id
 
 
 if __name__ == "__main__":
