@@ -73,3 +73,8 @@ cypress/screenshots
 
 # TypeScript
 *.tsbuildinfo
+
+# Misc
+_tmp.csv
+test.py
+

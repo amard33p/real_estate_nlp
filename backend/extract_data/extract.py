@@ -54,7 +54,6 @@ class ProjectDetails:
     promoter_name: Optional[str] = None
     project_type: Optional[str] = None
     project_subtype: Optional[str] = None
-    project_status: Optional[str] = None
     rera_acknowledgement_number: Optional[str] = None
     rera_registration_number: Optional[str] = None
     land_under_litigation: Optional[str] = None
@@ -74,7 +73,7 @@ class ProjectDetails:
     estimated_cost_of_construction: Optional[str] = None
     complaints_on_this_promoter: Optional[str] = None
     complaints_on_this_project: Optional[str] = None
-    rera_project_approval_status: Optional[str] = None
+    rera_approval_status: Optional[str] = None
 
 
 class ReraDataParser:
@@ -168,7 +167,10 @@ class ReraDataParser:
                     return next_p.text.strip()
         return None
 
-    def extract_project_status(self, html_content: str) -> Optional[str]:
+    def extract_data_from_project_view_details(
+        self, html_content: str
+    ) -> Optional[str]:
+        fields_to_extract = "STATUS"
         try:
             soup = BeautifulSoup(html_content, "html.parser")
             table = soup.find("table", {"id": "approvedTable"})
@@ -176,7 +178,7 @@ class ReraDataParser:
                 return None
             header_row = table.find("thead").find("tr")
             headers = [th.text.strip().upper() for th in header_row.find_all("th")]
-            status_index = headers.index("STATUS")
+            status_index = headers.index(fields_to_extract)
 
             for row in table.find("tbody").find_all("tr"):
                 columns = row.find_all("td")
@@ -209,7 +211,6 @@ class ReraDataParser:
         details.promoter_name = self.extract_value(soup, "Promoter Name")
         details.project_type = self.extract_value(soup, "Project Type")
         details.project_subtype = self.extract_value(soup, "Project Sub Type")
-        details.project_status = self.extract_value(soup, "Project Status")
         details.rera_acknowledgement_number = self.extract_value(
             soup, "Acknowledgement Number"
         )
@@ -256,8 +257,8 @@ class ReraDataParser:
             view_details_html = self.get_project_view_details(
                 details.rera_registration_number
             )
-            details.rera_project_approval_status = clean_status(
-                self.extract_project_status(view_details_html)
+            details.rera_approval_status = clean_status(
+                self.extract_data_from_project_view_details(view_details_html)
             )
 
         return details
@@ -268,7 +269,7 @@ class ReraDataParser:
             html_content = self.get_view_all_projects()
 
             # Find the first occurrence of 'PRM/KA/RERA/'
-            match = re.search(r'PRM/KA/RERA/\d+/\d+/PR/\d{6}/\d{6}', html_content)
+            match = re.search(r"PRM/KA/RERA/\d+/\d+/PR/\d{6}/\d{6}", html_content)
             if not match:
                 log.error("No RERA registration number found")
                 return None
@@ -333,10 +334,9 @@ def process_project(parser: ReraDataParser, project_id: str, queue: Queue):
         log.error(f"Project ;{project_id}; FAILED: {e}")
 
 
-def run_concurrently(project_ids):
+def run_concurrently(project_ids, filename=CSV_FILE):
     parser = ReraDataParser()
     queue = Queue()
-    filename = CSV_FILE
 
     # Start the CSV writer thread
     writer_thread = Thread(target=csv_writer, args=(filename, queue), daemon=True)
@@ -395,17 +395,19 @@ def parse_rera_date(rera_ack_or_reg_no):
     return pd.NaT
 
 
-def get_start_project_id_for_db_refresh(df):
+def filter_projects_to_update(df) -> Tuple[int, int]:
     parser = ReraDataParser()
     latest_project_id, latest_rera_reg_no = parser.get_latest_approved_project()
     latest_project_registration_date = parse_rera_date(latest_rera_reg_no)
-    log.info(f"Latest approved project registration date: {latest_project_registration_date}")
+    log.info(
+        f"Latest approved project registration date: {latest_project_registration_date}"
+    )
 
     # Data before this ID do not follow fixed date format
     df = df[df["project_id"].astype(int) >= 10000]
 
     # Filter unknown status projects
-    unknown_df = df[df["rera_project_approval_status"] == "UNKNOWN"].copy()
+    unknown_df = df[df["rera_approval_status"] == "UNKNOWN"].copy()
 
     # Parse the date for unknown projects
     unknown_df["rera_acknowledgement_date"] = (
@@ -415,11 +417,11 @@ def get_start_project_id_for_db_refresh(df):
     # Sort unknown projects by registration date
     unknown_df = unknown_df.sort_values("rera_acknowledgement_date")
 
-    # Calculate the date 60 days before the latest approved project
+    # Calculate the date 90 days before the latest approved project
     lookup_start_date = latest_project_registration_date - timedelta(days=90)
     log.info(f"Lookup start date: {lookup_start_date}")
 
-    # Find the first project within 60 days of the latest approved project
+    # Find the oldest project within 90 days of the latest approved project
     lookup_start_project = unknown_df[
         unknown_df["rera_acknowledgement_date"] >= lookup_start_date
     ]
@@ -428,13 +430,47 @@ def get_start_project_id_for_db_refresh(df):
     log.info(f"Lookup start project ID: {lookup_start_project_id}")
     log.info(f"Lookup end project ID: {latest_project_id}")
 
-    return lookup_start_project_id
+    return lookup_start_project_id, latest_project_id
+
+
+def update_csv_with_new_data():
+    df = pd.read_csv(CSV_FILE)
+
+    start_project_id, end_project_id = filter_projects_to_update(df)
+
+    # Convert project_id to int for proper comparison
+    df["project_id"] = df["project_id"].astype(int)
+
+    # Filter projects to update
+    projects_to_update = df[
+        (df["project_id"].astype(int) >= int(start_project_id)) & 
+        (df["project_id"].astype(int) <= int(end_project_id))
+    ]
+    project_ids = projects_to_update["project_id"].tolist()
+
+    # Create a temporary file for new data
+    temp_file = "_tmp.csv"
+
+    log.info(f"Updating projects {project_ids[0]} to {project_ids[-1]}")
+    # Run the concurrent update process
+    run_concurrently(project_ids, temp_file)
+
+    # Read the temporary file
+    updated_df = pd.read_csv(temp_file)
+    updated_df = updated_df.sort_values("project_id")
+
+    # Update the original DataFrame with new data
+    df.set_index("project_id", inplace=True)
+    updated_df.set_index("project_id", inplace=True)
+    df.update(updated_df)
+    df.reset_index(inplace=True)
+
+    # Save the updated DataFrame back to the original CSV file
+    df.to_csv(CSV_FILE, index=False)
+
+    log.info(f"CSV file updated successfully")
 
 
 if __name__ == "__main__":
-    # run_concurrently()
-    # retry_failed_projects()
-    # csv_to_sqlite(CSV_FILE, DB_FILE)
-    # adhoc()
-    df = pd.read_csv(CSV_FILE)
-    print(get_start_project_id_for_db_refresh(df))
+    update_csv_with_new_data()
+    csv_to_sqlite(CSV_FILE, DB_FILE)
