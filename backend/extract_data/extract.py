@@ -46,6 +46,7 @@ log = logging.getLogger("RERA_PARSER")
 CSV_FILE = "karnataka_projects.csv"
 DB_FILE = "../rera_projects.db"
 TABLE_NAME = "karnataka_projects"
+RERA_APPLICATION_PROCESSING_TIME_DAYS = 180
 
 
 @dataclass
@@ -264,45 +265,6 @@ class ReraDataParser:
 
         return details
 
-    def get_latest_approved_project(self) -> Optional[Tuple[str, str]]:
-        try:
-            # Get the view all projects page
-            html_content = self.get_view_all_projects()
-
-            # Find the first occurrence of 'PRM/KA/RERA/'
-            match = re.search(r"PRM/KA/RERA/\d+/\d+/PR/\d{6}/\d{6}", html_content)
-            if not match:
-                log.error("No RERA registration number found")
-                return None
-
-            latest_rera_reg_no = match.group(0)
-            log.info(f"Latest RERA registration number: {latest_rera_reg_no}")
-
-            # Get project view details
-            view_details_html = self.get_project_view_details(latest_rera_reg_no)
-            if not view_details_html:
-                log.error("Failed to get project view details")
-                return None
-
-            # Extract project ID
-            soup = BeautifulSoup(view_details_html, "html.parser")
-            view_details_link = soup.find("a", title="View Project Details")
-            if not view_details_link:
-                log.error("View Project Details link not found")
-                return None
-
-            project_id = view_details_link.get("id")
-            if not project_id:
-                log.error("Project ID not found in the link")
-                return None
-
-            log.info(f"Latest approved project ID: {project_id}")
-            return project_id, latest_rera_reg_no
-
-        except Exception as e:
-            log.error(f"Error getting latest approved project ID: {e}")
-            return None
-
 
 def csv_writer(filename: str, queue: Queue):
     with open(filename, mode="a", newline="", encoding="utf-8") as file:
@@ -399,15 +361,33 @@ def parse_rera_date(rera_ack_or_reg_no):
 
 
 def filter_projects_to_update(df) -> Tuple[int, int]:
-    parser = ReraDataParser()
-    latest_project_id, latest_rera_reg_no = parser.get_latest_approved_project()
-    latest_project_registration_date = parse_rera_date(latest_rera_reg_no)
+    # Data before this ID do not follow fixed date format
+    df = df[df["project_id"].astype(int) >= 10000]
+
+    # Filter approved projects
+    approved_df = df[df["rera_approval_status"] == "APPROVED"].copy()
+
+    # Parse the date from rera_registration_number and create a new column for approved projects
+    approved_df["rera_registration_date"] = approved_df[
+        "rera_registration_number"
+    ].apply(parse_rera_date)
+
+    # For some inexplicable reason, some rows have registration dates after today
+    # This is anomalous behaviour and we will exclude these rows
+    today = pd.Timestamp.today().normalize()
+    approved_df = approved_df[approved_df["rera_registration_date"] <= today]
+
+    # Sort approved projects by registration date
+    approved_df = approved_df.sort_values("rera_registration_date")
+
+    # Get the most recent date for approved projects
+    latest_project_registration_date = approved_df["rera_registration_date"].iloc[-1]
+    latest_approved_project_id = approved_df["project_id"].iloc[-1]
+
     log.info(
         f"Latest approved project registration date: {latest_project_registration_date}"
     )
-
-    # Data before this ID do not follow fixed date format
-    df = df[df["project_id"].astype(int) >= 10000]
+    log.info(f"Latest approved project ID: {latest_approved_project_id}")
 
     # Filter unknown status projects
     unknown_df = df[
@@ -423,20 +403,19 @@ def filter_projects_to_update(df) -> Tuple[int, int]:
     # Sort unknown projects by registration date
     unknown_df = unknown_df.sort_values("rera_acknowledgement_date")
 
-    # Calculate the date 90 days before the latest approved project
-    lookup_start_date = latest_project_registration_date - timedelta(days=90)
-    log.info(f"Lookup start date: {lookup_start_date}")
-
-    # Find the oldest project within 90 days of the latest approved project
+    lookup_start_date = latest_project_registration_date - timedelta(
+        days=RERA_APPLICATION_PROCESSING_TIME_DAYS
+    )
+    # Find the first project within 90 days of the latest approved project
     lookup_start_project = unknown_df[
         unknown_df["rera_acknowledgement_date"] >= lookup_start_date
     ]
-
     lookup_start_project_id = lookup_start_project["project_id"].iloc[0]
-    log.info(f"Lookup start project ID: {lookup_start_project_id}")
-    log.info(f"Lookup end project ID: {latest_project_id}")
 
-    return lookup_start_project_id, latest_project_id
+    log.info(f"Lookup start date: {lookup_start_date}")
+    log.info(f"Lookup start project ID: {lookup_start_project_id}")
+
+    return lookup_start_project_id, latest_approved_project_id
 
 
 def update_csv_with_new_data():
@@ -456,6 +435,9 @@ def update_csv_with_new_data():
 
     # Create a temporary file for new data
     temp_file = "_tmp.csv"
+    # if file exists remove it
+    if os.path.exists(temp_file):
+        os.remove(temp_file)
 
     log.info(f"Updating projects {project_ids[0]} to {project_ids[-1]}")
     # Run the concurrent update process
@@ -477,11 +459,8 @@ def update_csv_with_new_data():
 
     log.info(f"CSV file updated successfully")
 
-    # Remove the temporary file
-    os.remove(temp_file)
 
 
 if __name__ == "__main__":
     update_csv_with_new_data()
     csv_to_sqlite(CSV_FILE, DB_FILE)
-    # adhoc(12460)
