@@ -67,7 +67,7 @@ def transform_query(user_query: str, db: SQLDatabase) -> str:
     _SQL_TEMPLATE = """Given an input question, return the syntactically correct {dialect} query to run for that question.
     - Pay attention to use only the column names you can see in the tables below. Be careful to not query for columns that do not exist.
     - Use 'LIKE' instead of '=' for matching the following columns after converting them to uppercase: 'promoter_name', 'district', 'source_of_water', 'approving_authority'.
-    - Always include the following filters: land_under_litigation = 'NO', rera_project_approval_status = 'APPROVED', 'project_name' is not NULL, 'latitude' is not NULL, 'longitude' is not NULL.
+    - Always include the following filters: land_under_litigation = 'NO', rera_approval_status = 'APPROVED', 'project_name' is not NULL, 'latitude' is not NULL, 'longitude' is not NULL.
     - Only include these columns in the SELECT statement: 'project_id' as 'id', 'project_name' as 'name', 'latitude', 'longitude'.
     - Do not include any geographical filtering in the SQL query.
     - For date comparisons, use the SQLite date functions. For example, to get the year from a date column, use: CAST(substr(date_column, 1, 4) AS INTEGER)

@@ -4,7 +4,7 @@ import {
   TextField,
   Button,
   CircularProgress,
-  Container,
+  Typography,
 } from "@mui/material";
 import { TypeAnimation } from "react-type-animation";
 import axios from "axios";
@@ -45,13 +45,14 @@ const SearchForm: React.FC<SearchFormProps> = ({ setProjects }) => {
   };
 
   return (
-    <Container maxWidth="md" sx={{ my: 4 }}>
+    <Box sx={{ p: 2 }}>
+      <Typography variant="h6" gutterBottom>Search Projects</Typography>
       <Box
         component="form"
         onSubmit={handleSubmit}
-        sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+        sx={{ display: "flex", flexDirection: "column" }}
       >
-        <Box sx={{ position: "relative", flexGrow: 1, mr: 2 }}>
+        <Box sx={{ position: "relative", mb: 2 }}>
           <TextField
             fullWidth
             required
@@ -105,12 +106,11 @@ const SearchForm: React.FC<SearchFormProps> = ({ setProjects }) => {
           variant="contained"
           disabled={isLoading}
           size="large"
-          sx={{ height: "56px", minWidth: "120px" }} // Match the height of the TextField
         >
           {isLoading ? <CircularProgress size={24} /> : "Search"}
         </Button>
       </Box>
-    </Container>
+    </Box>
   );
 };
 

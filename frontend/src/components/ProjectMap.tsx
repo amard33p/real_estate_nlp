@@ -40,7 +40,7 @@ const ProjectMap: React.FC<ProjectMapProps> = ({
   const bangalorePosition: [number, number] = [12.9716, 77.5946];
 
   return (
-    <Box sx={{ height: 400, width: "100%", my: 2 }}>
+    <Box sx={{ height: '100%', width: "100%" }}>
       <MapContainer
         center={bangalorePosition}
         zoom={12}

@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { ThemeProvider, createTheme, CssBaseline } from "@mui/material";
+import { ThemeProvider, createTheme, CssBaseline, Box, Grid } from "@mui/material";
 import axios from "axios";
 import Header from "./components/Header";
 import SearchForm from "./components/SearchForm";
 import ProjectMap from "./components/ProjectMap";
 import ProjectDetails from "./components/ProjectDetails";
+import ProjectList from "./components/ProjectList";
 import { Project, ProjectDetails as ProjectDetailsType } from "./types";
 
 const theme = createTheme({
@@ -21,13 +22,12 @@ const theme = createTheme({
 
 const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProject, setSelectedProject] =
-    useState<ProjectDetailsType | null>(null);
+  const [selectedProject, setSelectedProject] = useState<ProjectDetailsType | null>(null);
 
   const handleMarkerClick = async (id: number) => {
     try {
       const response = await axios.get<ProjectDetailsType>(
-        `http://localhost:5000/api/project/${id}`,
+        `http://localhost:5000/api/project/${id}`
       );
       setSelectedProject(response.data);
     } catch (error) {
@@ -38,10 +38,21 @@ const App: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Header />
-      <SearchForm setProjects={setProjects} />
-      <ProjectMap locations={projects} onMarkerClick={handleMarkerClick} />
-      {selectedProject && <ProjectDetails project={selectedProject} />}
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+        <Header />
+        <Grid container sx={{ flexGrow: 1 }}>
+          <Grid item xs={3}>
+            <ProjectList projects={projects} onProjectSelect={handleMarkerClick} />
+          </Grid>
+          <Grid item xs={6}>
+            <ProjectMap locations={projects} onMarkerClick={handleMarkerClick} />
+          </Grid>
+          <Grid item xs={3}>
+            <SearchForm setProjects={setProjects} />
+            {selectedProject && <ProjectDetails project={selectedProject} />}
+          </Grid>
+        </Grid>
+      </Box>
     </ThemeProvider>
   );
 };
