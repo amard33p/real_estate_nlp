@@ -49,6 +49,12 @@ TABLE_NAME = "karnataka_projects"
 RERA_APPLICATION_PROCESSING_TIME_DAYS = 180
 
 
+class NonExistingEntity(Exception):
+    """Raised when an entity (e.g., a project) does not exist."""
+
+    pass
+
+
 @dataclass
 class ProjectDetails:
     project_id: str
@@ -119,7 +125,10 @@ class ReraDataParser:
         return response.text
 
     def get_project_details(self, project_id: str) -> str:
-        return self._post_request("projectDetails", {"action": project_id})
+        try:
+            return self._post_request("projectDetails", {"action": project_id})
+        except ChunkedEncodingError:
+            raise NonExistingEntity(f"Project ID {project_id} does not exist")
 
     def get_project_view_details(self, rera_reg_no: str) -> Optional[str]:
         data = {
@@ -292,6 +301,8 @@ def process_project(parser: ReraDataParser, project_id: str, queue: Queue):
         project_details = parser.extract_project_details(project_id)
         queue.put(project_details)
         log.info(f"Project ;{project_id}; processed")
+    except NonExistingEntity as e:
+        log.error(f"Project ;{project_id}; does not exist: {e}")
     except Exception as e:
         failed_project_ids.append(project_id)
         log.error(f"Project ;{project_id}; FAILED: {e}")
@@ -418,7 +429,7 @@ def filter_projects_to_update(df) -> Tuple[int, int]:
     return lookup_start_project_id, latest_approved_project_id
 
 
-def update_csv_with_new_data():
+def update_existing_data():
     df = pd.read_csv(CSV_FILE)
 
     start_project_id, end_project_id = filter_projects_to_update(df)
@@ -435,7 +446,6 @@ def update_csv_with_new_data():
 
     # Create a temporary file for new data
     temp_file = "_tmp.csv"
-    # if file exists remove it
     if os.path.exists(temp_file):
         os.remove(temp_file)
 
@@ -457,10 +467,52 @@ def update_csv_with_new_data():
     # Save the updated DataFrame back to the original CSV file
     df.to_csv(CSV_FILE, index=False)
 
-    log.info(f"CSV file updated successfully")
+    log.info(f"Data updated successfully")
 
+
+def fetch_new_data():
+    parser = ReraDataParser()
+    df = pd.read_csv(CSV_FILE)
+
+    last_project_id = df["project_id"].astype(int).max()
+    current_project_id = last_project_id + 1
+    non_existent_count = 0
+    max_non_existent_count = 10
+
+    log.info(f"Starting processing from project ID: {current_project_id}")
+
+    with open(CSV_FILE, mode="a", newline="", encoding="utf-8") as file:
+        fieldnames = [field.name for field in fields(ProjectDetails)]
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+
+        while non_existent_count < max_non_existent_count:
+            try:
+                project_details = parser.extract_project_details(
+                    str(current_project_id)
+                )
+                writer.writerow(asdict(project_details))
+                log.info(f"Project ;{current_project_id}; processed")
+                non_existent_count = 0
+            except NonExistingEntity as e:
+                non_existent_count += 1
+                log.info(f"Will try {max_non_existent_count - non_existent_count} more projects")
+            except Exception as e:
+                failed_project_ids.append(current_project_id)
+                log.error(f"Project ;{current_project_id}; FAILED: {e}")
+                non_existent_count = 0
+            current_project_id += 1
+        if non_existent_count == max_non_existent_count:
+            log.info(f"Got {max_non_existent_count} consecutive non-existent projects. Stopping processing.")
+
+    log.info(f"Finished processing. Last checked project ID: {current_project_id - 1 - max_non_existent_count}")
+
+    # Write failed project IDs to a file
+    if len(failed_project_ids) > 0:
+        with open("failed_project_ids.txt", "w") as f:
+            f.write("\n".join(failed_project_ids))
 
 
 if __name__ == "__main__":
-    update_csv_with_new_data()
+    # adhoc(12686)
+    fetch_new_data()
     csv_to_sqlite(CSV_FILE, DB_FILE)
