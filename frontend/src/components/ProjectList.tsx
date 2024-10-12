@@ -5,16 +5,28 @@ import { Project } from '../types';
 interface ProjectListProps {
   projects: Project[];
   onProjectSelect: (id: number) => void;
+  selectedProjectId: number | null;
 }
 
-const ProjectList: React.FC<ProjectListProps> = ({ projects, onProjectSelect }) => {
+const ProjectList: React.FC<ProjectListProps> = ({ projects, onProjectSelect, selectedProjectId }) => {
   return (
-    <Box sx={{ height: '100%', overflowY: 'auto' }}>
+    <Box sx={{ flexGrow: 1, overflowY: 'auto', maxHeight: '50vh' }}>
       <Typography variant="h6" sx={{ p: 2 }}>Project List</Typography>
       <List>
         {projects.map((project) => (
           <ListItem key={project.id} disablePadding>
-            <ListItemButton onClick={() => onProjectSelect(project.id)}>
+            <ListItemButton 
+              onClick={() => onProjectSelect(project.id)}
+              selected={project.id === selectedProjectId}
+              sx={{
+                '&.Mui-selected': {
+                  backgroundColor: 'primary.light',
+                  '&:hover': {
+                    backgroundColor: 'primary.main',
+                  },
+                },
+              }}
+            >
               <ListItemText primary={project.name} />
             </ListItemButton>
           </ListItem>
@@ -25,4 +37,3 @@ const ProjectList: React.FC<ProjectListProps> = ({ projects, onProjectSelect }) 
 };
 
 export default ProjectList;
-

@@ -88,7 +88,7 @@ def get_zonal_coordinates(location):
 def get_project_details(project_id):
     db = get_db_connection()
     sql_query = f"""
-    SELECT project_name, promoter_name, project_status, rera_registration_number, 
+    SELECT project_name, promoter_name, rera_registration_number, 
            source_of_water, approving_authority, project_start_date, proposed_completion_date
     FROM karnataka_projects
     WHERE project_id = {project_id}

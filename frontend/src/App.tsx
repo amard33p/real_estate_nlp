@@ -23,6 +23,7 @@ const theme = createTheme({
 const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectDetailsType | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
 
   const handleMarkerClick = async (id: number) => {
     try {
@@ -30,6 +31,7 @@ const App: React.FC = () => {
         `http://localhost:5000/api/project/${id}`
       );
       setSelectedProject(response.data);
+      setSelectedProjectId(id);
     } catch (error) {
       console.error("Error fetching project details:", error);
     }
@@ -41,15 +43,15 @@ const App: React.FC = () => {
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
         <Header />
         <Grid container sx={{ flexGrow: 1 }}>
-          <Grid item xs={3}>
-            <ProjectList projects={projects} onProjectSelect={handleMarkerClick} />
+          <Grid item xs={3} sx={{ display: 'flex', flexDirection: 'column' }}>
+            <ProjectList projects={projects} onProjectSelect={handleMarkerClick} selectedProjectId={selectedProjectId} />
+            {selectedProject && <ProjectDetails project={selectedProject} />}
           </Grid>
           <Grid item xs={6}>
             <ProjectMap locations={projects} onMarkerClick={handleMarkerClick} />
           </Grid>
           <Grid item xs={3}>
             <SearchForm setProjects={setProjects} />
-            {selectedProject && <ProjectDetails project={selectedProject} />}
           </Grid>
         </Grid>
       </Box>
