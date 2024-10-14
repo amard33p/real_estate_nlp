@@ -57,9 +57,9 @@ def extract_location_from_query(user_query: str) -> Dict[str, Any]:
 
     llm = ChatGoogleGenerativeAI(model="gemini-pro")
     json_parser = JsonOutputParser()
-    
+
     extraction_chain = EXTRACTION_PROMPT | llm | json_parser
-    
+
     return extraction_chain.invoke({"input": user_query})
 
 
@@ -84,9 +84,9 @@ def transform_query(user_query: str, db: SQLDatabase) -> str:
     )
 
     llm = ChatGoogleGenerativeAI(model="gemini-pro")
-    
+
     sql_chain = SQL_PROMPT | llm
-    
+
     response = sql_chain.invoke(
         {"input": user_query, "table_info": db.get_table_info(), "dialect": db.dialect}
     )

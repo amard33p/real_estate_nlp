@@ -116,5 +116,28 @@ def geocode():
         return jsonify({"error": "Unable to geocode the location"}), 404
 
 
+@app.route("/api/test_projects", methods=["POST"])
+def get_test_projects():
+    try:
+        db = get_db_connection()
+        sql_query = f"""
+            SELECT project_id AS id, project_name AS name, latitude, longitude
+            FROM karnataka_projects
+            WHERE UPPER(promoter_name) LIKE '%PRESTIGE%'
+                AND CAST(substr(project_start_date, 1, 4) AS INTEGER) = 2023
+                AND total_area_of_land > 8000
+                AND land_under_litigation = 'NO'
+                AND rera_approval_status = 'APPROVED'
+                AND project_name IS NOT NULL
+                AND latitude IS NOT NULL
+                AND longitude IS NOT NULL
+            ORDER BY project_start_date;
+        """
+        results = db.run(sql_query)
+        return jsonify(results)
+    except Exception as e:
+        return jsonify({"error": f"An error occurred: {e}"}), 500
+
+
 if __name__ == "__main__":
     app.run(debug=True)

@@ -495,16 +495,22 @@ def fetch_new_data():
                 non_existent_count = 0
             except NonExistingEntity as e:
                 non_existent_count += 1
-                log.info(f"Will try {max_non_existent_count - non_existent_count} more projects")
+                log.info(
+                    f"Will try {max_non_existent_count - non_existent_count} more projects"
+                )
             except Exception as e:
                 failed_project_ids.append(current_project_id)
                 log.error(f"Project ;{current_project_id}; FAILED: {e}")
                 non_existent_count = 0
             current_project_id += 1
         if non_existent_count == max_non_existent_count:
-            log.info(f"Got {max_non_existent_count} consecutive non-existent projects. Stopping processing.")
+            log.info(
+                f"Got {max_non_existent_count} consecutive non-existent projects. Stopping processing."
+            )
 
-    log.info(f"Finished processing. Last checked project ID: {current_project_id - 1 - max_non_existent_count}")
+    log.info(
+        f"Finished processing. Last checked project ID: {current_project_id - 1 - max_non_existent_count}"
+    )
 
     # Write failed project IDs to a file
     if len(failed_project_ids) > 0:
