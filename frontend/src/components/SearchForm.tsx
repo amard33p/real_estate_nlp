@@ -46,7 +46,9 @@ const SearchForm: React.FC<SearchFormProps> = ({ setProjects }) => {
 
   return (
     <Box sx={{ p: 2 }}>
-      <Typography variant="h6" gutterBottom>Search Projects</Typography>
+      <Typography variant="h6" gutterBottom>
+        Search Projects
+      </Typography>
       <Box
         component="form"
         onSubmit={handleSubmit}

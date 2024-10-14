@@ -15,6 +15,7 @@ import L from "leaflet";
 interface ProjectMapProps {
   locations: Project[];
   onMarkerClick: (id: number) => void;
+  selectedProjectId: number | null;
 }
 
 // This component will handle updating the map view
@@ -36,11 +37,20 @@ const MapUpdater: React.FC<{ locations: Project[] }> = ({ locations }) => {
 const ProjectMap: React.FC<ProjectMapProps> = ({
   locations,
   onMarkerClick,
+  selectedProjectId,
 }) => {
   const bangalorePosition: [number, number] = [12.9716, 77.5946];
 
+  const getMarkerIcon = (isSelected: boolean) => {
+    return L.icon({
+      iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
+      iconSize: isSelected ? [38, 62] : [25, 41],
+      iconAnchor: isSelected ? [19, 62] : [12, 41],
+    });
+  };
+
   return (
-    <Box sx={{ height: '100%', width: "100%" }}>
+    <Box sx={{ height: "100%", width: "100%" }}>
       <MapContainer
         center={bangalorePosition}
         zoom={12}
@@ -57,11 +67,11 @@ const ProjectMap: React.FC<ProjectMapProps> = ({
             eventHandlers={{
               click: () => onMarkerClick(location.id),
             }}
+            icon={getMarkerIcon(location.id === selectedProjectId)}
           >
             <Tooltip direction="top" offset={[0, -20]} opacity={1}>
               {location.name}
             </Tooltip>
-            <Popup>{location.name}</Popup>
           </Marker>
         ))}
         <MapUpdater locations={locations} />

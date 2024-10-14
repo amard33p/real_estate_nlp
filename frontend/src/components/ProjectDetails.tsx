@@ -8,7 +8,7 @@ interface ProjectDetailsProps {
 
 const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project }) => {
   return (
-    <Box sx={{ mt: 2, p: 2, overflowY: 'auto', maxHeight: '50vh' }}>
+    <Box sx={{ mt: 2, p: 2, overflowY: "auto", maxHeight: "50vh" }}>
       <Typography variant="h6" gutterBottom>
         Project Details
       </Typography>
@@ -30,7 +30,8 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project }) => {
         </Grid>
         <Grid item xs={12}>
           <Typography variant="body2">
-            <strong>RERA Registration:</strong> {project.rera_registration_number}
+            <strong>RERA Registration:</strong>{" "}
+            {project.rera_registration_number}
           </Typography>
         </Grid>
         <Grid item xs={12}>
