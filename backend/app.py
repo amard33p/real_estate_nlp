@@ -11,7 +11,7 @@ CORS(app, resources={r"/api/*": {"origins": "http://localhost:5173"}})
 
 BLR_LAT, BLR_LON = 12.9716, 77.5946  # Default to Bangalore center
 BLR_RADIUS = 100
-ZONAL_RADIUS = 10
+ZONAL_RADIUS = 5
 
 
 def haversine_distance(lat1, lon1, lat2, lon2):

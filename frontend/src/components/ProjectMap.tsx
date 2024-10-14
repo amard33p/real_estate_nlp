@@ -3,7 +3,6 @@ import {
   MapContainer,
   TileLayer,
   Marker,
-  Popup,
   Tooltip,
   useMap,
 } from "react-leaflet";
@@ -25,7 +24,7 @@ const MapUpdater: React.FC<{ locations: Project[] }> = ({ locations }) => {
   useEffect(() => {
     if (locations.length > 0) {
       const bounds = L.latLngBounds(
-        locations.map((loc) => [loc.latitude, loc.longitude]),
+        locations.map((loc) => [loc.latitude, loc.longitude])
       );
       map.fitBounds(bounds, { padding: [50, 50] });
     }
@@ -43,7 +42,9 @@ const ProjectMap: React.FC<ProjectMapProps> = ({
 
   const getMarkerIcon = (isSelected: boolean) => {
     return L.icon({
-      iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
+      iconUrl: isSelected
+        ? "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png"
+        : "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
       iconSize: isSelected ? [38, 62] : [25, 41],
       iconAnchor: isSelected ? [19, 62] : [12, 41],
     });

@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ThemeProvider,
   createTheme,
   CssBaseline,
   Box,
-  Grid,
 } from "@mui/material";
+import Grid from "@mui/material/Grid2";
 import axios from "axios";
 import Header from "./components/Header";
 import SearchForm from "./components/SearchForm";
@@ -34,6 +34,11 @@ const App: React.FC = () => {
     null,
   );
 
+  useEffect(() => {
+    setSelectedProject(null);
+    setSelectedProjectId(null);
+  }, [projects]);
+
   const handleMarkerClick = async (id: number) => {
     try {
       const response = await axios.get<ProjectDetailsType>(
@@ -52,7 +57,7 @@ const App: React.FC = () => {
       <Box sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
         <Header />
         <Grid container sx={{ flexGrow: 1 }}>
-          <Grid item xs={3} sx={{ display: "flex", flexDirection: "column" }}>
+          <Grid size={3} sx={{ display: "flex", flexDirection: "column" }}>
             <ProjectList
               projects={projects}
               onProjectSelect={handleMarkerClick}
@@ -60,14 +65,14 @@ const App: React.FC = () => {
             />
             {selectedProject && <ProjectDetails project={selectedProject} />}
           </Grid>
-          <Grid item xs={6}>
+          <Grid size={6}>
             <ProjectMap
               locations={projects}
               onMarkerClick={handleMarkerClick}
               selectedProjectId={selectedProjectId}
             />
           </Grid>
-          <Grid item xs={3}>
+          <Grid size={3}>
             <SearchForm setProjects={setProjects} />
           </Grid>
         </Grid>
