@@ -8,7 +8,6 @@ export interface Project {
 export interface ProjectDetails {
   project_name: string;
   promoter_name: string;
-  project_status: string;
   rera_registration_number: string;
   source_of_water: string;
   approving_authority: string;

@@ -26,11 +26,6 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project }) => {
         </Grid>
         <Grid size={12}>
           <Typography variant="body2">
-            <strong>Status:</strong> {project.project_status}
-          </Typography>
-        </Grid>
-        <Grid size={12}>
-          <Typography variant="body2">
             <strong>RERA Registration:</strong>{" "}
             {project.rera_registration_number}
           </Typography>

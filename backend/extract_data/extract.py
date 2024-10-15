@@ -46,7 +46,7 @@ log = logging.getLogger("RERA_PARSER")
 CSV_FILE = "karnataka_projects.csv"
 DB_FILE = "../rera_projects.db"
 TABLE_NAME = "karnataka_projects"
-RERA_APPLICATION_PROCESSING_TIME_DAYS = 180
+RERA_APPLICATION_PROCESSING_TIME_DAYS = 360
 
 
 class NonExistingEntity(Exception):
@@ -57,7 +57,7 @@ class NonExistingEntity(Exception):
 
 @dataclass
 class ProjectDetails:
-    project_id: str
+    project_id: int
     project_name: Optional[str] = None
     promoter_name: Optional[str] = None
     project_type: Optional[str] = None
@@ -124,9 +124,9 @@ class ReraDataParser:
         response.raise_for_status()
         return response.text
 
-    def get_project_details(self, project_id: str) -> str:
+    def get_project_details(self, project_id: int) -> str:
         try:
-            return self._post_request("projectDetails", {"action": project_id})
+            return self._post_request("projectDetails", {"action": str(project_id)})
         except ChunkedEncodingError:
             raise NonExistingEntity(f"Project ID {project_id} does not exist")
 
@@ -213,7 +213,7 @@ class ReraDataParser:
             log.error(f"Unable to locate complaints. {e}")
         return None
 
-    def extract_project_details(self, project_id: str) -> ProjectDetails:
+    def extract_project_details(self, project_id: int) -> ProjectDetails:
         html_content = self.get_project_details(project_id)
         soup = BeautifulSoup(html_content, "html.parser")
 
@@ -296,7 +296,7 @@ def csv_writer(filename: str, queue: Queue):
 failed_project_ids = list()
 
 
-def process_project(parser: ReraDataParser, project_id: str, queue: Queue):
+def process_project(parser: ReraDataParser, project_id: int, queue: Queue):
     try:
         project_details = parser.extract_project_details(project_id)
         queue.put(project_details)
@@ -318,7 +318,7 @@ def run_concurrently(project_ids, filename=CSV_FILE):
 
     with ThreadPoolExecutor(max_workers=3) as executor:
         futures = [
-            executor.submit(process_project, parser, str(project_id), queue)
+            executor.submit(process_project, parser, int(project_id), queue)
             for project_id in project_ids
         ]
 
@@ -348,7 +348,7 @@ def retry_failed_projects():
 
 def adhoc(project_id: int):
     parser = ReraDataParser()
-    print(parser.extract_project_details(str(project_id)))
+    print(parser.extract_project_details(project_id))
 
 
 def csv_to_sqlite(csv_filename: str, db_filename: str):
@@ -430,7 +430,7 @@ def filter_projects_to_update(df) -> Tuple[int, int]:
 
 
 def update_existing_data():
-    df = pd.read_csv(CSV_FILE)
+    df = pd.read_csv(CSV_FILE, dtype=object)
 
     start_project_id, end_project_id = filter_projects_to_update(df)
 
@@ -454,7 +454,8 @@ def update_existing_data():
     run_concurrently(project_ids, temp_file)
 
     # Read the temporary file
-    updated_df = pd.read_csv(temp_file)
+    updated_df = pd.read_csv(temp_file, dtype=object)
+    updated_df["project_id"] = updated_df["project_id"].astype(int)
     updated_df = updated_df.sort_values("project_id")
 
     # Update the original DataFrame with new data
@@ -472,7 +473,7 @@ def update_existing_data():
 
 def fetch_new_data():
     parser = ReraDataParser()
-    df = pd.read_csv(CSV_FILE)
+    df = pd.read_csv(CSV_FILE, dtype=object)
 
     last_project_id = df["project_id"].astype(int).max()
     current_project_id = last_project_id + 1
@@ -487,9 +488,7 @@ def fetch_new_data():
 
         while non_existent_count < max_non_existent_count:
             try:
-                project_details = parser.extract_project_details(
-                    str(current_project_id)
-                )
+                project_details = parser.extract_project_details(current_project_id)
                 writer.writerow(asdict(project_details))
                 log.info(f"Project ;{current_project_id}; processed")
                 non_existent_count = 0
@@ -520,5 +519,6 @@ def fetch_new_data():
 
 if __name__ == "__main__":
     # adhoc(12686)
-    fetch_new_data()
+    # fetch_new_data()
+    update_existing_data()
     csv_to_sqlite(CSV_FILE, DB_FILE)
